@@ -1,7 +1,10 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, nativeTheme, ipcMain } = require('electron');
 const path = require('path');
 
 let mainWindow;
+
+// Set default to dark
+nativeTheme.themeSource = 'dark';
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -11,6 +14,7 @@ function createWindow() {
     minHeight: 600,
     icon: path.join(__dirname, 'neofit.ico'),
     title: 'NeoFit Admin Dashboard',
+    backgroundColor: nativeTheme.themeSource === 'dark' ? '#0a0a0c' : '#f8fafc',
     webPreferences: {
       preload: path.join(__dirname, 'electron-preload.cjs'),
       contextIsolation: true,
@@ -25,6 +29,14 @@ function createWindow() {
     mainWindow.show();
   });
 
+  // Start the embedded Express API server in both dev and prod
+  try {
+    require('./server/index.cjs');
+    console.log('Embedded API server started.');
+  } catch (err) {
+    console.error('Failed to start embedded server:', err);
+  }
+
   const isDev = !app.isPackaged;
 
   if (isDev) {
@@ -33,14 +45,6 @@ function createWindow() {
     // Optionally open dev tools
     // mainWindow.webContents.openDevTools();
   } else {
-    // In production, start the embedded Express API server first
-    try {
-      require('./server/index.cjs');
-      console.log('Embedded API server started.');
-    } catch (err) {
-      console.error('Failed to start embedded server:', err);
-    }
-
     // Load the built React app
     mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
   }
@@ -49,6 +53,15 @@ function createWindow() {
     mainWindow = null;
   });
 }
+
+// IPC: renderer tells main process to switch theme
+ipcMain.handle('set-native-theme', (_event, theme) => {
+  nativeTheme.themeSource = theme; // 'dark' | 'light'
+  if (mainWindow) {
+    mainWindow.setBackgroundColor(theme === 'dark' ? '#0a0a0c' : '#f8fafc');
+  }
+  return nativeTheme.shouldUseDarkColors;
+});
 
 app.whenReady().then(createWindow);
 

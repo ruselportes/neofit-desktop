@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './index.css';
 
 // Import Views
@@ -12,11 +12,64 @@ import LoginView from './views/LoginView.tsx';
 // --- Main App ---
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState<string>(() => {
+    const saved = localStorage.getItem('theme');
+    return saved || 'dark';
+  });
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [role, setRole] = useState<string | null>(localStorage.getItem('role'));
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('sidebarCollapsed') === 'true';
+  });
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('sidebarWidth');
+    return saved ? parseInt(saved, 10) : 280;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+
+  const startResizing = (mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      let newWidth = e.clientX;
+      if (newWidth < 150) {
+        setSidebarCollapsed(true);
+        setIsResizing(false);
+      } else {
+        setSidebarCollapsed(false);
+        if (newWidth > 400) newWidth = 400; // upper limit
+        setSidebarWidth(newWidth);
+        localStorage.setItem('sidebarWidth', String(newWidth));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
+  const toggleSidebarCollapse = () => {
+    setSidebarCollapsed(prev => {
+      localStorage.setItem('sidebarCollapsed', String(!prev));
+      return !prev;
+    });
+  };
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ message, type });
@@ -30,10 +83,18 @@ function App() {
     setRole(newRole);
   };
 
+  useEffect(() => {
+    document.body.className = theme === 'light' ? 'light-mode' : '';
+    localStorage.setItem('theme', theme);
+    // Tell Electron main process to switch native title bar theme
+    const api = (window as unknown as { electronAPI?: { setNativeTheme?: (theme: string) => void } }).electronAPI;
+    if (api?.setNativeTheme) {
+      api.setNativeTheme(theme);
+    }
+  }, [theme]);
+
   const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(newTheme);
-    document.body.className = newTheme === 'light' ? 'light-mode' : '';
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
   const handleLogout = () => {
@@ -85,9 +146,15 @@ function App() {
       {/* Sidebar Overlay for Mobile */}
       <div className={`sidebar-overlay ${isSidebarOpen ? 'show' : ''}`} onClick={() => setIsSidebarOpen(false)}></div>
 
-      <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+      <aside 
+        className={`sidebar ${isSidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}
+        style={{ 
+          width: sidebarCollapsed ? undefined : `${sidebarWidth}px`,
+          transition: isResizing ? 'none' : undefined 
+        }}
+      >
         <div className="sidebar-header">
-          <div className="brand">
+          <div className="brand" onClick={toggleSidebarCollapse} style={{ cursor: 'pointer' }} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect x="6" y="11" width="12" height="2" fill="#ff5722" />
               <rect x="3" y="7" width="3" height="10" rx="1" fill="#ff5722" />
@@ -95,7 +162,7 @@ function App() {
               <rect x="1" y="9" width="2" height="6" rx="0.5" fill="#ff5722" opacity="0.7"/>
               <rect x="21" y="9" width="2" height="6" rx="0.5" fill="#ff5722" opacity="0.7"/>
             </svg>
-            <h1>NEO<span className="brand-accent">FIT</span></h1>
+            <h1 className="brand-text">NEO<span className="brand-accent">FIT</span></h1>
           </div>
           <button className="sidebar-close" onClick={() => setIsSidebarOpen(false)} aria-label="Close menu">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -106,48 +173,48 @@ function App() {
         </div>
         <ul className="nav-links">
           {['dashboard', 'members', 'attendance', 'rates']
-            .map(tab => (
-              <li 
-                key={tab} 
-                className={`nav-item ${activeTab === tab ? 'active' : ''}`} 
-                onClick={() => { setActiveTab(tab); setIsSidebarOpen(false); }}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}
-              >
-                <span>{tab.charAt(0).toUpperCase() + tab.slice(1)}</span>
-              </li>
-            ))}
+            .map(tab => {
+              const icons: Record<string, string> = { dashboard: '📊', members: '👥', attendance: '📋', rates: '💰' };
+              return (
+                <li 
+                  key={tab} 
+                  className={`nav-item ${activeTab === tab ? 'active' : ''}`} 
+                  onClick={() => { setActiveTab(tab); setIsSidebarOpen(false); }}
+                  title={sidebarCollapsed ? tab.charAt(0).toUpperCase() + tab.slice(1) : undefined}
+                >
+                  <span className="nav-icon">{icons[tab]}</span>
+                  <span className="nav-label">{tab.charAt(0).toUpperCase() + tab.slice(1)}</span>
+                </li>
+              );
+            })}
         </ul>
         
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div className="sidebar-footer">
           <button 
-            className="btn-secondary" 
-            onClick={() => { toggleTheme(); setIsSidebarOpen(false); }} 
-            style={{
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              gap: '8px',
-              padding: '0.75rem'
-            }}
+            className="btn-secondary sidebar-action-btn" 
+            onClick={() => { toggleTheme(); setIsSidebarOpen(false); }}
+            title={sidebarCollapsed ? (theme === 'dark' ? 'Light Mode' : 'Dark Mode') : undefined}
           >
-            {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+            <span className="nav-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
+            <span className="nav-label">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
           </button>
           
           <button 
-            className="btn-secondary" 
-            onClick={() => { handleLogout(); setIsSidebarOpen(false); }} 
-            style={{
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              gap: '8px',
-              padding: '0.75rem',
-              color: 'var(--danger)'
-            }}
+            className="btn-secondary sidebar-action-btn" 
+            onClick={() => { handleLogout(); setIsSidebarOpen(false); }}
+            style={{ color: 'var(--danger)' }}
+            title={sidebarCollapsed ? 'Logout' : undefined}
           >
-            🚪 Logout
+            <span className="nav-icon">🚪</span>
+            <span className="nav-label">Logout</span>
           </button>
         </div>
+
+        {/* Vertical Resize Handle */}
+        <div 
+          className="sidebar-resize-handle" 
+          onMouseDown={startResizing} 
+        />
       </aside>
       <main className="main-content">{renderContent()}</main>
       

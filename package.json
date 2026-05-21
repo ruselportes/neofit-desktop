@@ -9,9 +9,10 @@
   "scripts": {
     "dev": "concurrently -k \"vite\" \"node --watch server/index.cjs\"",
     "server:dev": "node --watch server/index.cjs",
-    "electron:dev": "concurrently -k \"vite\" \"node --watch server/index.cjs\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "tsc -b && vite build",
     "build:win": "npm run build && electron-builder --win",
+    "postinstall": "electron-builder install-app-deps",
     "lint": "eslint .",
     "preview": "vite preview"
   },

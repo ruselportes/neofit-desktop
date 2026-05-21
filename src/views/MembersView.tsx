@@ -2,6 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import * as api from '../api';
 import type { Member } from '../types';
 
+interface MemberHistoryCheckIn {
+  id: number;
+  date: string;
+  time: string;
+  status: string;
+}
+
 export default function MembersView({ role, showNotification }: { role: string | null, showNotification: (message: string, type?: 'success' | 'error') => void }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [search, setSearch] = useState('');
@@ -12,7 +19,7 @@ export default function MembersView({ role, showNotification }: { role: string |
   const [error, setError] = useState('');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [detailsMember, setDetailsMember] = useState<Member | null>(null);
-  const [memberCheckIns, setMemberCheckIns] = useState<any[]>([]);
+  const [memberCheckIns, setMemberCheckIns] = useState<MemberHistoryCheckIn[]>([]);
   const [loadingCheckIns, setLoadingCheckIns] = useState(false);
 
   const [historyTab, setHistoryTab] = useState<'calendar' | 'list'>('calendar');
@@ -38,6 +45,7 @@ export default function MembersView({ role, showNotification }: { role: string |
       });
   }, [search, statusFilter]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadMembers(); }, [loadMembers]);
 
   const calcExpiry = (plan: string, joinedDate: string): string => {
@@ -211,8 +219,9 @@ export default function MembersView({ role, showNotification }: { role: string |
       setRenewalType(null);
       loadMembers();
       showNotification(`${detailsMember.name}'s plan renewed successfully!`);
-    } catch (e: any) {
-      setError(e.message || 'Failed to renew plan.');
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : 'Failed to renew plan.';
+      setError(errMsg);
     }
   };
 
@@ -227,8 +236,9 @@ export default function MembersView({ role, showNotification }: { role: string |
       setRenewalType(null);
       loadMembers();
       showNotification(`${detailsMember.name}'s annual membership renewed successfully!`);
-    } catch (e: any) {
-      setError(e.message || 'Failed to renew annual membership.');
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : 'Failed to renew annual membership.';
+      setError(errMsg);
     }
   };
 
@@ -273,7 +283,10 @@ export default function MembersView({ role, showNotification }: { role: string |
       setShowModal(false);
       loadMembers();
       showNotification(editingMember ? 'Member updated successfully!' : 'Member added successfully!');
-    } catch (e: any) { setError(e.message || 'Failed to save member.'); }
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : 'Failed to save member.';
+      setError(errMsg);
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -282,8 +295,9 @@ export default function MembersView({ role, showNotification }: { role: string |
       await api.deleteMember(id);
       loadMembers();
       showNotification('Member deleted successfully!');
-    } catch (e: any) {
-      setError(e.message || 'Failed to delete member.');
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : 'Failed to delete member.';
+      setError(errMsg);
     }
   };
 

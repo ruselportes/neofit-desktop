@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as api from '../api';
 import type { CheckIn } from '../types';
 
@@ -18,15 +18,15 @@ export default function AttendanceView({ showNotification }: { showNotification:
     setMemberId('M-' + afterPrefix.slice(0, 3)); // max 3 digits (M-001 to M-999)
   };
 
-  const loadCheckIns = () => {
+  const loadCheckIns = useCallback(() => {
     api.fetchCheckIns(selectedDate)
       .then(setCheckIns)
       .catch(err => {
         console.error(err);
       });
-  };
+  }, [selectedDate]);
 
-  useEffect(() => { loadCheckIns(); }, [selectedDate]);
+  useEffect(() => { loadCheckIns(); }, [loadCheckIns]);
 
   const handleCheckIn = async () => {
     if (selectedDate !== today) return;
@@ -36,8 +36,9 @@ export default function AttendanceView({ showNotification }: { showNotification:
       showNotification(`${result.memberName} checked in successfully!`);
       setMemberId('M-');
       loadCheckIns();
-    } catch (e: any) {
-      showNotification(e.message || 'Failed to check in.', 'error');
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : 'Failed to check in.';
+      showNotification(errMsg, 'error');
     }
   };
 
@@ -46,7 +47,7 @@ export default function AttendanceView({ showNotification }: { showNotification:
       <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div className="header-title">
           <h2>Attendance Tracker</h2>
-          <p>Monitor live gym check-ins via biometrics or manual entry.</p>
+          <p>Monitor live gym check-ins.</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--glass-bg)', padding: '6px 14px', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
           <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date:</label>
@@ -60,33 +61,6 @@ export default function AttendanceView({ showNotification }: { showNotification:
         </div>
       </header>
 
-      <div className="scanner-box" style={{ position: 'relative', overflow: 'hidden', opacity: selectedDate !== today ? 0.5 : 1 }}>
-        <span style={{ 
-          position: 'absolute', 
-          top: '12px', 
-          right: '12px', 
-          fontSize: '0.75rem', 
-          background: 'rgba(255, 87, 34, 0.15)', 
-          color: 'var(--accent)', 
-          padding: '4px 10px', 
-          borderRadius: '12px', 
-          fontWeight: 600,
-          border: '1px solid rgba(255, 87, 34, 0.3)'
-        }}>
-          Coming Soon
-        </span>
-        <span className="icon" style={{ opacity: 0.6 }}>👆</span>
-        <h3 style={{ fontSize: '1.5rem', opacity: 0.8 }}>Fingerprint Scanner</h3>
-        <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '1.1rem', opacity: 0.7 }}>
-          Biometric integration is scheduled for future deployment.
-        </p>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '2rem 0' }}>
-        <div style={{ flex: 1, height: '1px', background: 'var(--glass-border)' }}></div>
-        <span style={{ color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '1px' }}>MANUAL ENTRY</span>
-        <div style={{ flex: 1, height: '1px', background: 'var(--glass-border)' }}></div>
-      </div>
 
       {selectedDate !== today && (
         <div style={{ 

@@ -12,9 +12,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'neofit-desktop-secret-key-2026';
 let dbPath;
 try {
   const { app } = require('electron');
-  dbPath = path.join(app.getPath('userData'), 'neofit.db');
+  if (app && app.isPackaged) {
+    dbPath = path.join(app.getPath('userData'), 'neofit.db');
+  } else {
+    dbPath = path.join(__dirname, '..', 'neofit.db');
+  }
 } catch {
-  // Not running inside Electron (dev mode) - use project root
+  // Not running inside Electron (dev mode or separate server run) - use project root
   dbPath = path.join(__dirname, '..', 'neofit.db');
 }
 
