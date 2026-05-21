@@ -1,0 +1,33 @@
+appId: com.neofit.desktop
+productName: NeoFit Admin
+copyright: Copyright © 2026 NeoFit
+
+directories:
+  buildResources: .
+  output: release
+
+files:
+  - dist/**/*
+  - server/**/*
+  - electron-main.cjs
+  - electron-preload.cjs
+  - node_modules/**/*
+  - package.json
+
+win:
+  icon: neofit.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: NeoFit Admin
+
+asar: true
+asarUnpack:
+  - node_modules/better-sqlite3/**/*
